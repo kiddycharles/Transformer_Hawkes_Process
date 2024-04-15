@@ -25,11 +25,11 @@ def prepare_dataloader(opt):
             return data, int(num_types)
 
     print('[Info] Loading train data...')
-    train_data, num_types = load_data(opt.data + 'train_2.pkl', 'train')
+    train_data, num_types = load_data(opt.data + 'train_4_BTC_ETH.pkl', 'train')
     # print('[Info] Loading dev data...')
     # dev_data, _ = load_data(opt.data + 'dev.pkl', 'dev')
     print('[Info] Loading test data...')
-    test_data, _ = load_data(opt.data + 'test_2.pkl', 'test')
+    test_data, _ = load_data(opt.data + 'test_4_BTC_ETH.pkl', 'test')
 
     trainloader = get_dataloader(train_data, opt.batch_size, shuffle=True)
     testloader = get_dataloader(test_data, opt.batch_size, shuffle=False)
@@ -53,7 +53,8 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
 
         """ forward """
         optimizer.zero_grad()
-
+        # print(event_type)
+        # print(event_time)
         enc_out, prediction = model(event_type, event_time)
 
         """ backward """
@@ -169,8 +170,8 @@ def main():
 
     parser.add_argument('-data', required=True)
 
-    parser.add_argument('-epoch', type=int, default=30)
-    parser.add_argument('-batch_size', type=int, default=16)
+    parser.add_argument('-epoch', type=int, default=100)
+    parser.add_argument('-batch_size', type=int, default=32)
 
     parser.add_argument('-d_model', type=int, default=64)
     parser.add_argument('-d_rnn', type=int, default=256)
@@ -181,9 +182,9 @@ def main():
     parser.add_argument('-n_head', type=int, default=4)
     parser.add_argument('-n_layers', type=int, default=4)
 
-    parser.add_argument('-dropout', type=float, default=0.1)
+    parser.add_argument('-dropout', type=float, default=0.0)
     parser.add_argument('-lr', type=float, default=1e-4)
-    parser.add_argument('-smooth', type=float, default=0.1)
+    parser.add_argument('-smooth', type=float, default=0.0)
 
     parser.add_argument('-log', type=str, default='log.txt')
 
@@ -213,7 +214,7 @@ def main():
         d_v=opt.d_v,
         dropout=opt.dropout,
     )
-    # model.to(opt.device)
+    model.to(opt.device)
 
     """ optimizer and scheduler """
     optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),

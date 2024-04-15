@@ -57,7 +57,7 @@ params = {
     'dropout': 0.1,
     'lr': 1e-4,
     'smooth': 0.1,
-    'log': 'log.txt'
+    'log': 'log_type2_epoch3_batch_16.txt'
 }
 
 # Print the parameters for verification

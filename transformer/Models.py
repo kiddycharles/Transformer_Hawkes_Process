@@ -1,8 +1,7 @@
 import math
-import numpy as np
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 import transformer.Constants as Constants
 from transformer.Layers import EncoderLayer
@@ -12,8 +11,23 @@ def get_non_pad_mask(seq):
     """ Get the non-padding positions. """
 
     assert seq.dim() == 2
+    # seq.ne  Computes input ≠ other input element-wise.
+    # A boolean tensor that is True where input is not equal to other and False elsewhere
+    # torch.unsequence(dim)
+    # Return a new tensor with a dimension of size one inserted at the specified position.
+    # The returned tensor shares the same underlying data with this tensor
+    # A dim value within the range [-input.dim() - 1, input.dim() + 1) can be used. Negative dim will
+    # unsqueeze() applied at dim = dim + input.dim() + 1
+    # the index at which to insert the singleton dimension
     return seq.ne(Constants.PAD).type(torch.float).unsqueeze(-1)
 
+
+# print(get_non_pad_mask(torch.tensor([[1, 2, 3, 4, 5], [5, 4, 3, 2, 1]])))
+# print(torch.tensor([[1, 2, 3, 4, 5], [5, 4, 3, 2, 0]]).ne(Constants.PAD))
+# print(torch.tensor([[1, 2, 3, 4, 5], [5, 4, 3, 2, 0]]).dim())
+# print(torch.tensor([[1, 2, 3, 4, 5], [5, 4, 3, 2, 0]]).shape)
+# print(torch.tensor([[1, 2, 3, 4, 5], [5, 4, 3, 2, 0]]).unsqueeze(-1))
+# print(torch.tensor([[1, 2, 3, 4, 5], [5, 4, 3, 2, 0]]).unsqueeze(-1).shape)
 
 def get_attn_key_pad_mask(seq_k, seq_q):
     """ For masking out the padding part of key sequence. """
@@ -35,6 +49,27 @@ def get_subsequent_mask(seq):
     return subsequent_mask
 
 
+class DataEmbedding_inverted(nn.Module):
+    def __init__(self, c_in, d_model, embed_type='fixed', freq='h', dropout=0.1):
+        super(DataEmbedding_inverted, self).__init__()
+        self.value_embedding = nn.Linear(c_in, d_model)
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, x, x_mark):
+        # x = x.permute(0, 2, 1)
+        # x: [Batch Time Variate]
+        # x: [Batch Variate Time]
+        x = x.unsqueeze(-1)
+        print(x.shape)
+        print(x_mark.shape)
+        if x_mark is None:
+            x = self.value_embedding(x)
+        else:
+            # the potential to take covariates (e.g. timestamps) as tokens
+            x = self.value_embedding(torch.cat([x, x_mark], 1))
+        # x: [Batch Variate d_model]
+        return self.dropout(x)
+
 class Encoder(nn.Module):
     """ A encoder model with self attention mechanism. """
 
@@ -51,6 +86,8 @@ class Encoder(nn.Module):
             [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],
             device=torch.device('cpu'))
 
+        # print(self.position_vec)
+        # print(self.position_vec.shape)
         # event type embedding
         self.event_emb = nn.Embedding(num_types + 1, d_model, padding_idx=Constants.PAD)
 
@@ -63,11 +100,19 @@ class Encoder(nn.Module):
         Input: batch*seq_len.
         Output: batch*seq_len*d_model.
         """
-
+        # Time: N_type * train_len e.g., [2, 1798]
+        # time.unsuqeeze(-1) -> [2, 1798, 1]
         result = time.unsqueeze(-1) / self.position_vec
+        # print(result)
         result[:, :, 0::2] = torch.sin(result[:, :, 0::2])
         result[:, :, 1::2] = torch.cos(result[:, :, 1::2])
+        # print(result)
         return result * non_pad_mask
+
+    # def temporal_enc(self, time, non_pad_mask):
+    #     data_embed = DataEmbedding_inverted(1, 1798)
+    #     result = data_embed(time, non_pad_mask)
+    #     return result
 
     def forward(self, event_type, event_time, non_pad_mask):
         """ Encode event sequences via masked self-attention. """
@@ -79,8 +124,9 @@ class Encoder(nn.Module):
         slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
 
         tem_enc = self.temporal_enc(event_time, non_pad_mask)
+        # print(tem_enc.shape)
         enc_output = self.event_emb(event_type)
-
+        # print(enc_output.shape)
         for enc_layer in self.layer_stack:
             enc_output += tem_enc
             enc_output, _ = enc_layer(
@@ -178,9 +224,14 @@ class Transformer(nn.Module):
                 type_prediction: batch*seq_len*num_classes (not normalized);
                 time_prediction: batch*seq_len.
         """
+        print("x", event_type.shape)
+        print("y", event_time.shape)
 
         non_pad_mask = get_non_pad_mask(event_type)
+        # print("x", event_type.shape)  # [2, 1798]
+        # print("y", non_pad_mask.shape)  # [2, 1798, 1]
         enc_output = self.encoder(event_type, event_time, non_pad_mask)
+        print("T", enc_output.shape)
         enc_output = self.rnn(enc_output, non_pad_mask)
 
         time_prediction = self.time_predictor(enc_output, non_pad_mask)
