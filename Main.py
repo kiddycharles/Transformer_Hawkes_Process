@@ -25,11 +25,11 @@ def prepare_dataloader(opt):
             return data, int(num_types)
 
     print('[Info] Loading train data...')
-    train_data, num_types = load_data(opt.data + 'train_4_BTC_ETH.pkl', 'train')
+    train_data, num_types = load_data(opt.data + 'train_4_BTC.pkl', 'train')
     # print('[Info] Loading dev data...')
     # dev_data, _ = load_data(opt.data + 'dev.pkl', 'dev')
     print('[Info] Loading test data...')
-    test_data, _ = load_data(opt.data + 'test_4_BTC_ETH.pkl', 'test')
+    test_data, _ = load_data(opt.data + 'test_4_BTC.pkl', 'test')
 
     trainloader = get_dataloader(train_data, opt.batch_size, shuffle=True)
     testloader = get_dataloader(test_data, opt.batch_size, shuffle=False)

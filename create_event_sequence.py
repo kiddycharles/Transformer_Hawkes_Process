@@ -122,14 +122,15 @@ def generate_crypto_event_sequences(crypto_list, num_type):
 
         df['time_since_last_event_seconds'] = df['time_since_last_event'].dt.total_seconds() / 60 / 24
         scs = create_crypto_event_sequences(df)
-        train_event_sequences.append(scs[:-30])
-        test_event_sequences.append(scs[-30:])
-        save_data(train_event_sequences, num_type, './data/crypto/train_'+str(num_type)+'_BTC_ETH.pkl', 'train')
-        save_data(test_event_sequences, num_type, './data/crypto/test_'+str(num_type)+'_BTC_ETH.pkl', 'test')
+        train_event_sequences.append(scs[-10:-5])
+        test_event_sequences.append(scs[-5:])
+        save_data(train_event_sequences, num_type, './data/crypto/train_'+str(num_type)+'_BTC.pkl', 'train')
+        save_data(test_event_sequences, num_type, './data/crypto/test_'+str(num_type)+'_BTC.pkl', 'test')
 
 
 if __name__ == '__main__':
     # crypto_list = ['ADA', 'BNB', 'BTC', 'DOGE', 'ETH', 'USDC', 'USDT', 'XRP']
-    crypto_list = ['BTC', 'ETH']
+    # crypto_list = ['BTC', 'ETH']
+    crypto_list = ['BTC']
     num_type = 4
     generate_crypto_event_sequences(crypto_list, num_type)

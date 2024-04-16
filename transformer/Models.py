@@ -34,7 +34,11 @@ def get_attn_key_pad_mask(seq_k, seq_q):
 
     # expand to fit the shape of key query attention matrix
     len_q = seq_q.size(1)
+    print("len_q", len_q)
     padding_mask = seq_k.eq(Constants.PAD)
+    print("seq_k", seq_k)
+    print("seq_q", seq_q)
+    print("padding_mask", padding_mask)
     padding_mask = padding_mask.unsqueeze(1).expand(-1, len_q, -1)  # b x lq x lk
     return padding_mask
 
@@ -43,9 +47,15 @@ def get_subsequent_mask(seq):
     """ For masking out the subsequent info, i.e., masked self-attention. """
 
     sz_b, len_s = seq.size()
+    print("sz_b, len_s", sz_b, len_s)
     subsequent_mask = torch.triu(
         torch.ones((len_s, len_s), device=seq.device, dtype=torch.uint8), diagonal=1)
+    print("subsequent_mask", subsequent_mask)
+    print(subsequent_mask.shape)
+    print(subsequent_mask.unsqueeze(0))
+    print(subsequent_mask.unsqueeze(0).shape)
     subsequent_mask = subsequent_mask.unsqueeze(0).expand(sz_b, -1, -1)  # b x ls x ls
+    print("New subsequent_mask", subsequent_mask)
     return subsequent_mask
 
 
@@ -224,14 +234,25 @@ class Transformer(nn.Module):
                 type_prediction: batch*seq_len*num_classes (not normalized);
                 time_prediction: batch*seq_len.
         """
-        print("x", event_type.shape)
-        print("y", event_time.shape)
-
+        print("\nevent_type", event_type.shape)
+        print("event_type", event_type)
+        print("event_time", event_time.shape)
+        print("event_time", event_time)
         non_pad_mask = get_non_pad_mask(event_type)
+        print(non_pad_mask.shape)
+        print(non_pad_mask)
+        # Access the last axis using indexing
+        last_axis = non_pad_mask[:, :, -1]
+
+        print("last_axis", last_axis)
+        # Verify if all elements are ones
+        are_all_ones = torch.all(last_axis == 1)
+
+        print("are_all_ones", are_all_ones)
         # print("x", event_type.shape)  # [2, 1798]
         # print("y", non_pad_mask.shape)  # [2, 1798, 1]
         enc_output = self.encoder(event_type, event_time, non_pad_mask)
-        print("T", enc_output.shape)
+        # print("T", enc_output.shape)
         enc_output = self.rnn(enc_output, non_pad_mask)
 
         time_prediction = self.time_predictor(enc_output, non_pad_mask)
