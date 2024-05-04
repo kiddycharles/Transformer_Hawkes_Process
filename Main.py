@@ -25,11 +25,11 @@ def prepare_dataloader(opt):
             return data, int(num_types)
 
     print('[Info] Loading train data...')
-    train_data, num_types = load_data(opt.data + 'train_4_BTC.pkl', 'train')
+    train_data, num_types = load_data(opt.data + 'train_2_8crypto.pkl', 'train')
     # print('[Info] Loading dev data...')
     # dev_data, _ = load_data(opt.data + 'dev.pkl', 'dev')
     print('[Info] Loading test data...')
-    test_data, _ = load_data(opt.data + 'test_4_BTC.pkl', 'test')
+    test_data, _ = load_data(opt.data + 'test_2_8crypto.pkl', 'test')
 
     trainloader = get_dataloader(train_data, opt.batch_size, shuffle=True)
     testloader = get_dataloader(test_data, opt.batch_size, shuffle=False)
@@ -176,8 +176,8 @@ def main():
     parser.add_argument('-d_model', type=int, default=64)
     parser.add_argument('-d_rnn', type=int, default=256)
     parser.add_argument('-d_inner_hid', type=int, default=128)
-    parser.add_argument('-d_k', type=int, default=16)
-    parser.add_argument('-d_v', type=int, default=16)
+    parser.add_argument('-d_k', type=int, default=32)
+    parser.add_argument('-d_v', type=int, default=32)
 
     parser.add_argument('-n_head', type=int, default=4)
     parser.add_argument('-n_layers', type=int, default=4)

@@ -34,11 +34,11 @@ def get_attn_key_pad_mask(seq_k, seq_q):
 
     # expand to fit the shape of key query attention matrix
     len_q = seq_q.size(1)
-    print("len_q", len_q)
+    # print("len_q", len_q)
     padding_mask = seq_k.eq(Constants.PAD)
-    print("seq_k", seq_k)
-    print("seq_q", seq_q)
-    print("padding_mask", padding_mask)
+    # print("seq_k", seq_k)
+    # print("seq_q", seq_q)
+    # print("padding_mask", padding_mask)
     padding_mask = padding_mask.unsqueeze(1).expand(-1, len_q, -1)  # b x lq x lk
     return padding_mask
 
@@ -47,15 +47,15 @@ def get_subsequent_mask(seq):
     """ For masking out the subsequent info, i.e., masked self-attention. """
 
     sz_b, len_s = seq.size()
-    print("sz_b, len_s", sz_b, len_s)
+    # print("sz_b, len_s", sz_b, len_s)
     subsequent_mask = torch.triu(
         torch.ones((len_s, len_s), device=seq.device, dtype=torch.uint8), diagonal=1)
-    print("subsequent_mask", subsequent_mask)
-    print(subsequent_mask.shape)
-    print(subsequent_mask.unsqueeze(0))
-    print(subsequent_mask.unsqueeze(0).shape)
+    # print("subsequent_mask", subsequent_mask)
+    # print(subsequent_mask.shape)
+    # print(subsequent_mask.unsqueeze(0))
+    # print(subsequent_mask.unsqueeze(0).shape)
     subsequent_mask = subsequent_mask.unsqueeze(0).expand(sz_b, -1, -1)  # b x ls x ls
-    print("New subsequent_mask", subsequent_mask)
+    # print("New subsequent_mask", subsequent_mask)
     return subsequent_mask
 
 
@@ -66,17 +66,14 @@ class DataEmbedding_inverted(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, x, x_mark):
-        # x = x.permute(0, 2, 1)
-        # x: [Batch Time Variate]
-        # x: [Batch Variate Time]
         x = x.unsqueeze(-1)
-        print(x.shape)
-        print(x_mark.shape)
+        x = x.permute(0, 2, 1)
+        # x: [Batch Variate Time]
         if x_mark is None:
             x = self.value_embedding(x)
         else:
             # the potential to take covariates (e.g. timestamps) as tokens
-            x = self.value_embedding(torch.cat([x, x_mark], 1))
+            x = self.value_embedding(torch.cat([x, x_mark.permute(0, 2, 1)], 1))
         # x: [Batch Variate d_model]
         return self.dropout(x)
 
@@ -110,17 +107,21 @@ class Encoder(nn.Module):
         Input: batch*seq_len.
         Output: batch*seq_len*d_model.
         """
-        # Time: N_type * train_len e.g., [2, 1798]
-        # time.unsuqeeze(-1) -> [2, 1798, 1]
+        # print("unsqueeze", time.unsqueeze(-1))
+        # print(time.unsqueeze(-1).shape)
+        # print(time.unsqueeze(-1)[:,:, -1])
         result = time.unsqueeze(-1) / self.position_vec
-        # print(result)
+        # print("result", result)
+        # print(result.shape)
         result[:, :, 0::2] = torch.sin(result[:, :, 0::2])
         result[:, :, 1::2] = torch.cos(result[:, :, 1::2])
         # print(result)
+        # print(result*non_pad_mask)
+        assert torch.equal(result, result*non_pad_mask)
         return result * non_pad_mask
 
     # def temporal_enc(self, time, non_pad_mask):
-    #     data_embed = DataEmbedding_inverted(1, 1798)
+    #     data_embed = DataEmbedding_inverted(time.shape[1], 64)
     #     result = data_embed(time, non_pad_mask)
     #     return result
 
@@ -132,10 +133,18 @@ class Encoder(nn.Module):
         slf_attn_mask_keypad = get_attn_key_pad_mask(seq_k=event_type, seq_q=event_type)
         slf_attn_mask_keypad = slf_attn_mask_keypad.type_as(slf_attn_mask_subseq)
         slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
-
+        # print('--------------------------------------------')
+        # print("\nevent_time.shape", event_time.shape)
+        # print("event_type.shape", event_type.shape)
+        # print("non_pad_mask", non_pad_mask.shape)
         tem_enc = self.temporal_enc(event_time, non_pad_mask)
         # print(tem_enc.shape)
+        # print('tem_enc', tem_enc.shape)
+        # print('--------------------------------------------')
+
+        # print(tem_enc.shape)
         enc_output = self.event_emb(event_type)
+        # print(enc_output.shape)
         # print(enc_output.shape)
         for enc_layer in self.layer_stack:
             enc_output += tem_enc
@@ -234,21 +243,21 @@ class Transformer(nn.Module):
                 type_prediction: batch*seq_len*num_classes (not normalized);
                 time_prediction: batch*seq_len.
         """
-        print("\nevent_type", event_type.shape)
-        print("event_type", event_type)
-        print("event_time", event_time.shape)
-        print("event_time", event_time)
+        # print("\nevent_type", event_type.shape)
+        # print("event_type", event_type)
+        # print("event_time", event_time.shape)
+        # print("event_time", event_time)
         non_pad_mask = get_non_pad_mask(event_type)
-        print(non_pad_mask.shape)
-        print(non_pad_mask)
+        # print(non_pad_mask.shape)
+        # print(non_pad_mask)
         # Access the last axis using indexing
         last_axis = non_pad_mask[:, :, -1]
 
-        print("last_axis", last_axis)
+        # print("last_axis", last_axis)
         # Verify if all elements are ones
         are_all_ones = torch.all(last_axis == 1)
 
-        print("are_all_ones", are_all_ones)
+        # print("are_all_ones", are_all_ones)
         # print("x", event_type.shape)  # [2, 1798]
         # print("y", non_pad_mask.shape)  # [2, 1798, 1]
         enc_output = self.encoder(event_type, event_time, non_pad_mask)

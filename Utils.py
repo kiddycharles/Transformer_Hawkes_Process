@@ -106,6 +106,7 @@ def time_loss(prediction, event_time):
     prediction.squeeze_(-1)
 
     true = event_time[:, 1:] - event_time[:, :-1]
+    true = torch.where(true >= 0., true, torch.zeros(true.shape).to(torch.device("cpu")))
     prediction = prediction[:, :-1]
 
     # event time gap prediction
